@@ -1,0 +1,29 @@
+# FastAPI Framework (no version pinning to use latest with wheels)
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+sqlalchemy
+aiosqlite
+
+# Redis Cache
+redis
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+pydantic>=2.0
+pydantic-settings
+email-validator
+
+# AWS SDK
+boto3
+
+# Monitoring
+prometheus-client
+
+# Testing (optional)
+pytest
+httpx

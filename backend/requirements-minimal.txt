@@ -1,0 +1,30 @@
+# Minimal requirements for development
+# FastAPI Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database (async support)
+sqlalchemy
+asyncpg
+
+# Redis Cache
+redis
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+pydantic
+pydantic-settings
+email-validator
+
+# AWS SDK
+boto3
+
+# Monitoring
+prometheus-client
+
+# Development
+pytest
+httpx

@@ -1,0 +1,95 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.navbar {
+  background: var(--white);
+  box-shadow: var(--shadow);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar-brand h1 {
+  font-size: 20px;
+  color: var(--primary-color);
+  margin: 0;
+}
+
+.navbar-menu {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.nav-link {
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: var(--gray);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  background-color: var(--light-gray);
+  color: var(--dark);
+}
+
+.nav-link.active {
+  background-color: var(--primary-color);
+  color: var(--white);
+}
+
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-info {
+  color: var(--gray);
+  font-size: 14px;
+}
+
+.btn-logout {
+  background-color: var(--danger-color);
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.btn-logout:hover {
+  background-color: #dc2626;
+}
+
+.main-content {
+  flex: 1;
+  padding: 32px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .navbar-menu {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+}
