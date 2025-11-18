@@ -93,3 +93,7 @@ temp/
 # OS
 Thumbs.db
 .DS_Store
+
+
+infrastructure/course-reg-key.pem
+infrastructure/user-data.sh

@@ -1,0 +1,44 @@
+﻿# Git Line Endings Configuration
+
+# Default behavior: LF on checkout, LF on commit
+* text=auto eol=lf
+
+# Shell scripts must have LF (Linux)
+*.sh text eol=lf
+
+# Windows scripts can have CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Python should use LF
+*.py text eol=lf
+
+# JavaScript/TypeScript should use LF
+*.js text eol=lf
+*.ts text eol=lf
+*.jsx text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+
+# Config files use LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+
+# Markdown and docs use LF
+*.md text eol=lf
+*.txt text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+*.pem binary
+*.key binary

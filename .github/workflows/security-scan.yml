@@ -1,0 +1,84 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  secrets-scan:
+    name: Scan for Sensitive Data
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for better scanning
+      
+      - name: Check for .env files
+        run: |
+          echo "Checking for .env files..."
+          FOUND=$(git ls-files | grep -E '\.env$' | grep -v '\.example' | grep -v '\.template' || true)
+          if [ -n "$FOUND" ]; then
+            echo "❌ ERROR: .env files found in repository:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "✓ No .env files found"
+      
+      - name: Check for private keys
+        run: |
+          echo "Checking for private keys..."
+          FOUND=$(git ls-files | grep -E '\.(pem|key|p12|pfx|ppk)$' || true)
+          if [ -n "$FOUND" ]; then
+            echo "❌ ERROR: Private key files found:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "✓ No private keys found"
+      
+      - name: Check for AWS credentials files
+        run: |
+          echo "Checking for AWS credential files..."
+          FOUND=$(git ls-files | grep -E 'credentials$|\.aws/' || true)
+          if [ -n "$FOUND" ]; then
+            echo "❌ ERROR: AWS credential files found:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "✓ No AWS credential files found"
+      
+      - name: Scan for AWS access keys in code
+        run: |
+          echo "Scanning for AWS access keys..."
+          if git grep -E 'AKIA[0-9A-Z]{16}' -- ':!*.md' ':!GIT_SECURITY.md'; then
+            echo "❌ ERROR: AWS Access Key detected in code!"
+            exit 1
+          fi
+          echo "✓ No AWS access keys detected"
+      
+      - name: Scan for potential secrets
+        run: |
+          echo "Scanning for potential hardcoded secrets..."
+          # Check for long base64-like strings that might be secrets
+          SUSPICIOUS=$(git grep -E '(secret|password|token|key).*["\x27][A-Za-z0-9+/=]{32,}["\x27]' -- '*.py' '*.js' '*.ts' || true)
+          if [ -n "$SUSPICIOUS" ]; then
+            echo "⚠️ WARNING: Potential hardcoded secrets found:"
+            echo "$SUSPICIOUS"
+            echo "Please review these matches."
+            # Don't fail on this - just warn
+          fi
+      
+      - name: Security scan summary
+        if: success()
+        run: |
+          echo "✅ Security scan passed!"
+          echo ""
+          echo "Scanned for:"
+          echo "  - .env files"
+          echo "  - Private keys (.pem, .key, etc.)"
+          echo "  - AWS credentials"
+          echo "  - AWS access keys in code"
+          echo "  - Hardcoded secrets"
