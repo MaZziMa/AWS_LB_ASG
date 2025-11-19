@@ -318,6 +318,17 @@ Write-Host "  ✓ User-data script created" -ForegroundColor Green
 # Step 6: Update launch template and create new instance
 Write-Host "`n[6/6] Updating infrastructure..." -ForegroundColor Green
 
+# Load current infrastructure config to avoid hardcoded IDs
+$infraConfigPath = Join-Path $PSScriptRoot 'infrastructure-config.json'
+if (Test-Path $infraConfigPath) {
+    $infra = Get-Content $infraConfigPath | ConvertFrom-Json
+}
+
+$ec2SgId = if ($infra -and $infra.EC2_SG_ID) { $infra.EC2_SG_ID } else { "sg-05d7200f233ca2a6b" }
+$ltName  = if ($infra -and $infra.LAUNCH_TEMPLATE) { $infra.LAUNCH_TEMPLATE } else { "course-reg-launch-template" }
+$asgName = if ($infra -and $infra.ASG_NAME) { $infra.ASG_NAME } else { "course-reg-asg" }
+$albDns  = if ($infra -and $infra.ALB_DNS) { $infra.ALB_DNS } else { "" }
+
 # Create new launch template version
 Write-Host "  - Creating new launch template version..." -ForegroundColor Gray
 
@@ -328,7 +339,7 @@ $launchTemplateData = @{
     IamInstanceProfile = @{
         Name = "MyEC2Profile"
     }
-    SecurityGroupIds = @("sg-05d7200f233ca2a6b")
+    SecurityGroupIds = @($ec2SgId)
     UserData = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($userData))
     TagSpecifications = @(
         @{
@@ -346,7 +357,7 @@ $ltFile = ".\temp-launch-template.json"
 $launchTemplateData | Out-File -FilePath $ltFile -Encoding utf8
 
 $newVersion = aws ec2 create-launch-template-version `
-    --launch-template-name course-reg-launch-template `
+    --launch-template-name $ltName `
     --launch-template-data "file://$ltFile" `
     --query 'LaunchTemplateVersion.VersionNumber' `
     --output text
@@ -358,7 +369,7 @@ if ($newVersion) {
     
     # Set as default version
     aws ec2 modify-launch-template `
-        --launch-template-name course-reg-launch-template `
+        --launch-template-name $ltName `
         --default-version $newVersion | Out-Null
     
     Write-Host "  ✓ Set as default version" -ForegroundColor Green
@@ -370,7 +381,7 @@ if ($newVersion) {
 # Refresh Auto Scaling Group
 Write-Host "  - Refreshing Auto Scaling Group..." -ForegroundColor Gray
 aws autoscaling start-instance-refresh `
-    --auto-scaling-group-name course-reg-asg `
+    --auto-scaling-group-name $asgName `
     --preferences '{"MinHealthyPercentage":50}' | Out-Null
 
 Write-Host "  ✓ Instance refresh started" -ForegroundColor Green
@@ -383,13 +394,21 @@ Remove-Item ..\deploy-package.zip -ErrorAction SilentlyContinue
 Write-Host "`n=== Deployment Initiated Successfully ===" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "  1. Monitor instance refresh:" -ForegroundColor White
+if ($asgName) {
+Write-Host "     aws autoscaling describe-instance-refreshes --auto-scaling-group-name $asgName" -ForegroundColor Gray
+} else {
 Write-Host "     aws autoscaling describe-instance-refreshes --auto-scaling-group-name course-reg-asg" -ForegroundColor Gray
+}
 Write-Host "`n  2. Check new instance health:" -ForegroundColor White
 Write-Host "     .\monitor-target-health.ps1" -ForegroundColor Gray
 Write-Host "`n  3. View application logs:" -ForegroundColor White
 Write-Host "     ssh -i course-reg-key.pem ec2-user@<new-instance-ip>" -ForegroundColor Gray
 Write-Host "     sudo journalctl -u course-registration -f" -ForegroundColor Gray
 Write-Host "`n  4. Access application:" -ForegroundColor White
-Write-Host "     http://course-reg-alb-118381901.us-east-1.elb.amazonaws.com" -ForegroundColor Cyan
+if ($albDns -and $albDns -ne "") {
+Write-Host "     http://$albDns" -ForegroundColor Cyan
+} else {
+Write-Host "     Use ALB DNS from infrastructure-config.json (ALB_DNS)" -ForegroundColor Cyan
+}
 Write-Host "`n  5. S3 Bucket created: $S3Bucket" -ForegroundColor White
 Write-Host "     (You can delete it later if not needed)" -ForegroundColor Gray

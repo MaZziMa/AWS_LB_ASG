@@ -104,15 +104,15 @@ aws ec2 authorize-security-group-ingress `
 
 Write-Host "  OK: Allowed port 8000 from ALB" -ForegroundColor Gray
 
-# Allow SSH from admin IP (ignore if rule already exists)
+# Allow SSH from anywhere (for easy access)
 aws ec2 authorize-security-group-ingress `
     --group-id $EC2_SG_ID `
     --protocol tcp `
     --port 22 `
-    --cidr $ADMIN_IP `
+    --cidr 0.0.0.0/0 `
     --region $REGION 2>$null
 
-Write-Host "  OK: Allowed SSH (22) from $ADMIN_IP" -ForegroundColor Gray
+Write-Host "  OK: Allowed SSH (22) from anywhere (0.0.0.0/0)" -ForegroundColor Gray
 
 
 Write-Host "`n3. Using existing IAM Instance Profile for EC2..." -ForegroundColor Yellow

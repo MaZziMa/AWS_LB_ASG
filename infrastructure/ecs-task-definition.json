@@ -1,0 +1,133 @@
+{
+  "family": "course-reg-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2", "FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::171308902397:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::171308902397:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "171308902397.dkr.ecr.us-east-1.amazonaws.com/course-reg-backend:latest",
+      "cpu": 384,
+      "memory": 768,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "APP_NAME",
+          "value": "Course Registration System"
+        },
+        {
+          "name": "APP_VERSION",
+          "value": "1.0.0"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        },
+        {
+          "name": "DEBUG",
+          "value": "false"
+        },
+        {
+          "name": "HOST",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "PORT",
+          "value": "8000"
+        },
+        {
+          "name": "WORKERS",
+          "value": "2"
+        },
+        {
+          "name": "DYNAMODB_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "DYNAMODB_ENDPOINT_URL",
+          "value": ""
+        },
+        {
+          "name": "DYNAMODB_TABLE_PREFIX",
+          "value": "CourseReg"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://localhost:6379/0"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "CORS_ORIGINS",
+          "value": "[\"*\"]"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/course-registration",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "backend",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8000/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "dependsOn": [
+        {
+          "containerName": "redis",
+          "condition": "START"
+        }
+      ]
+    },
+    {
+      "name": "redis",
+      "image": "redis:7-alpine",
+      "cpu": 128,
+      "memory": 256,
+      "essential": false,
+      "portMappings": [
+        {
+          "containerPort": 6379,
+          "protocol": "tcp"
+        }
+      ],
+      "command": [
+        "redis-server",
+        "--maxmemory",
+        "128mb",
+        "--maxmemory-policy",
+        "allkeys-lru"
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/course-registration",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "redis",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
