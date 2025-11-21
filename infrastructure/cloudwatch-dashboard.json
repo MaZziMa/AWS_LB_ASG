@@ -1,0 +1,153 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCount", {"stat": "Sum", "label": "Total Requests"}],
+          [".", "ActiveConnectionCount", {"stat": "Sum", "label": "Active Connections"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ALB - Request Count & Connections",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", {"stat": "Average", "label": "Avg Response Time"}],
+          ["...", {"stat": "p99", "label": "p99 Response Time"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ALB - Response Time",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "label": "Seconds"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "HTTPCode_Target_2XX_Count", {"stat": "Sum", "label": "2xx Success", "color": "#2ca02c"}],
+          [".", "HTTPCode_Target_4XX_Count", {"stat": "Sum", "label": "4xx Client Error", "color": "#ff7f0e"}],
+          [".", "HTTPCode_Target_5XX_Count", {"stat": "Sum", "label": "5xx Server Error", "color": "#d62728"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "ALB - HTTP Status Codes",
+        "period": 60
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "HealthyHostCount", {"stat": "Average", "label": "Healthy Targets", "color": "#2ca02c"}],
+          [".", "UnHealthyHostCount", {"stat": "Average", "label": "Unhealthy Targets", "color": "#d62728"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "ALB - Target Health",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/EC2", "CPUUtilization", {"stat": "Average", "label": "Avg CPU"}],
+          ["...", {"stat": "Maximum", "label": "Max CPU"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "EC2 - CPU Utilization",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100,
+            "label": "Percent"
+          }
+        },
+        "annotations": {
+          "horizontal": [
+            {
+              "label": "Scale Threshold",
+              "value": 70,
+              "color": "#ff7f0e"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/EC2", "NetworkIn", {"stat": "Sum", "label": "Network In"}],
+          [".", "NetworkOut", {"stat": "Sum", "label": "Network Out"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "EC2 - Network Traffic",
+        "period": 60,
+        "yAxis": {
+          "left": {
+            "label": "Bytes"
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "ConsumedReadCapacityUnits", {"stat": "Sum", "label": "Read Capacity"}],
+          [".", "ConsumedWriteCapacityUnits", {"stat": "Sum", "label": "Write Capacity"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "DynamoDB - Consumed Capacity",
+        "period": 60
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "UserErrors", {"stat": "Sum", "label": "User Errors (Throttling)"}],
+          [".", "SystemErrors", {"stat": "Sum", "label": "System Errors"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "DynamoDB - Errors",
+        "period": 60
+      }
+    }
+  ]
+}
