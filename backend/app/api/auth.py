@@ -14,12 +14,12 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
-    """User login - returns JWT tokens"""
-    # Query DynamoDB by username using GSI
-    db_client = get_db()
-    table = db_client.get_table(Tables.USERS)
+    """User login - returns JWT tokens using username-index GSI"""
+    # Query DynamoDB by username using GSI (FAST)
+    from app.dynamodb import db
     
     try:
+        table = db.get_table(Tables.USERS)
         response = table.query(
             IndexName='username-index',
             KeyConditionExpression=Key('username').eq(credentials.username)
@@ -46,9 +46,9 @@ async def login(credentials: UserLogin):
                 detail="Account is inactive"
             )
         
-        # Update last login
+        # Update last login (sync operation, no await needed)
         from app.dynamodb import update_item
-        await update_item(Tables.USERS, {'user_id': user['user_id']}, {'last_login': datetime.utcnow().isoformat()})
+        update_item(Tables.USERS, {'user_id': user['user_id']}, {'last_login': datetime.utcnow().isoformat()})
         
         # Create tokens
         token_data = {
