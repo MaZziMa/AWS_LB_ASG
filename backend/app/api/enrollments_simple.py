@@ -7,9 +7,10 @@ import uuid
 from datetime import datetime
 from boto3.dynamodb.conditions import Key
 
-from app.dynamodb import get_db, get_item, put_item, scan_items, update_item, delete_item, query_items, Tables
+from app.dynamodb import get_db, get_item, put_item, scan_items, update_item, delete_item, query_items, Tables, db
 from app.auth import get_current_user
 from app.schemas_dynamodb import TokenData
+from boto3.dynamodb.conditions import Attr
 
 router = APIRouter(prefix="/api/enrollments", tags=["Enrollments"])
 
@@ -33,11 +34,15 @@ async def enroll_course(
     if not course.get('is_active', False):
         raise HTTPException(status_code=400, detail="Course is not active")
     
-    # Check if already enrolled
-    enrollments = await scan_items(Tables.ENROLLMENTS)
-    for e in enrollments:
-        if e.get('student_id') == current_user.user_id and e.get('course_id') == course_id:
-            raise HTTPException(status_code=400, detail="Already enrolled in this course")
+    # Check if already enrolled using GSI
+    table = db.get_table(Tables.ENROLLMENTS)
+    response = table.query(
+        IndexName='student-semester-index',
+        KeyConditionExpression=Key('student_id').eq(current_user.user_id),
+        FilterExpression=Attr('course_id').eq(course_id)
+    )
+    if response.get('Items'):
+        raise HTTPException(status_code=400, detail="Already enrolled in this course")
     
     # Check capacity
     enrolled_count = course.get('enrolled_count', 0)
@@ -77,11 +82,13 @@ async def get_my_enrollments(
 ):
     """Get current user's enrollments"""
     try:
-        # Get all enrollments
-        all_enrollments = await scan_items(Tables.ENROLLMENTS)
-        
-        # Filter by current user
-        my_enrollments = [e for e in all_enrollments if e.get('student_id') == current_user.user_id]
+        # Use GSI to query enrollments by student_id
+        table = db.get_table(Tables.ENROLLMENTS)
+        response = table.query(
+            IndexName='student-semester-index',
+            KeyConditionExpression=Key('student_id').eq(current_user.user_id)
+        )
+        my_enrollments = response.get('Items', [])
         
         # Enrich with course data
         result = []

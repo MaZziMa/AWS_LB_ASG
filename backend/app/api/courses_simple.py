@@ -6,9 +6,10 @@ from typing import Optional, List
 import uuid
 from datetime import datetime
 
-from app.dynamodb import get_item, put_item, scan_items, update_item, delete_item, Tables
+from app.dynamodb import get_item, put_item, scan_items, query_items, update_item, delete_item, Tables, db
 from app.auth import get_current_user
 from app.schemas_dynamodb import TokenData
+from boto3.dynamodb.conditions import Key, Attr
 
 router = APIRouter(prefix="/api/courses", tags=["Courses"])
 
@@ -17,15 +18,20 @@ router = APIRouter(prefix="/api/courses", tags=["Courses"])
 async def list_courses(semester: Optional[str] = None):
     """List all courses, optionally filtered by semester"""
     try:
-        # Scan all courses from DynamoDB
-        courses = await scan_items(Tables.COURSES)
-        
-        # Filter by semester if provided
         if semester:
-            courses = [c for c in courses if c.get('semester') == semester]
-        
-        # Filter only active courses
-        courses = [c for c in courses if c.get('is_active', True)]
+            # Use GSI index for fast semester queries
+            table = db.get_table(Tables.COURSES)
+            response = table.query(
+                IndexName='semester-index',
+                KeyConditionExpression=Key('semester').eq(semester),
+                FilterExpression=Attr('is_active').eq(True)
+            )
+            courses = response.get('Items', [])
+        else:
+            # If no semester filter, scan all courses
+            # Note: Consider requiring semester parameter for production
+            courses = await scan_items(Tables.COURSES)
+            courses = [c for c in courses if c.get('is_active', True)]
         
         return courses
     except Exception as e:
