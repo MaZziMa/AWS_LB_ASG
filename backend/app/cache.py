@@ -3,12 +3,44 @@ Redis cache management
 Handles caching strategy for high-traffic operations
 """
 import redis.asyncio as redis
-from typing import Optional, Any
+from typing import Optional, Any, Callable
 import json
 import logging
+import hashlib
+from functools import wraps
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class CacheTTL:
+    """Cache TTL constants (seconds)"""
+    COURSE_LIST = 300       # 5 minutes - courses change rarely
+    COURSE_DETAIL = 600     # 10 minutes
+    USER_PROFILE = 180      # 3 minutes
+    ENROLLMENT_LIST = 60    # 1 minute - enrollments change frequently
+    POPULAR_COURSES = 900   # 15 minutes
+
+
+class CacheKeys:
+    """Cache key patterns"""
+    
+    @staticmethod
+    def course_list(semester_id: int, department_id: int = None) -> str:
+        base = f"courses:semester:{semester_id}"
+        return f"{base}:dept:{department_id}" if department_id else base
+    
+    @staticmethod
+    def course_detail(course_id: str) -> str:
+        return f"course:{course_id}"
+    
+    @staticmethod
+    def user_enrollments(user_id: str) -> str:
+        return f"enrollments:user:{user_id}"
+    
+    @staticmethod
+    def enrollment_count(course_id: str) -> str:
+        return f"enrollment_count:{course_id}"
 
 
 class RedisCache:
@@ -47,6 +79,72 @@ class RedisCache:
         if self.pool:
             await self.pool.disconnect()
         logger.info("Redis disconnected")
+    
+    async def get(self, key: str) -> Optional[Any]:
+        """Get value from cache with JSON deserialization"""
+        if not self.redis_client:
+            return None
+        
+        try:
+            value = await self.redis_client.get(key)
+            if value:
+                return json.loads(value)
+            return None
+        except Exception as e:
+            logger.warning(f"Cache GET error for {key}: {e}")
+            return None
+    
+    async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
+        """Set value in cache with JSON serialization and TTL"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            serialized = json.dumps(value)
+            await self.redis_client.setex(key, ttl, serialized)
+            return True
+        except Exception as e:
+            logger.warning(f"Cache SET error for {key}: {e}")
+            return False
+    
+    async def delete(self, *keys: str) -> int:
+        """Delete keys from cache"""
+        if not self.redis_client or not keys:
+            return 0
+        
+        try:
+            return await self.redis_client.delete(*keys)
+        except Exception as e:
+            logger.warning(f"Cache DELETE error: {e}")
+            return 0
+    
+    async def delete_pattern(self, pattern: str) -> int:
+        """Delete all keys matching pattern (e.g., 'courses:*')"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            keys = await self.redis_client.keys(pattern)
+            if keys:
+                return await self.redis_client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.warning(f"Cache DELETE_PATTERN error for {pattern}: {e}")
+            return 0
+    
+    async def increment(self, key: str, amount: int = 1, ttl: int = None) -> int:
+        """Increment counter (useful for rate limiting)"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            new_value = await self.redis_client.incr(key, amount)
+            if ttl and new_value == amount:  # First increment
+                await self.redis_client.expire(key, ttl)
+            return new_value
+        except Exception as e:
+            logger.warning(f"Cache INCREMENT error for {key}: {e}")
+            return 0
     
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache"""
@@ -156,6 +254,41 @@ class CacheTTL:
     SECTION_SLOTS = 30          # 30 seconds - frequently changes
     STUDENT_ENROLLMENTS = 60    # 1 minute - moderate changes
     SESSION_DATA = 1800         # 30 minutes - session timeout
+
+
+def cached(key_func: Callable, ttl: int = 300):
+    """
+    Decorator for automatic caching
+    
+    Usage:
+        @cached(lambda course_id: CacheKeys.course_detail(course_id), ttl=600)
+        async def get_course(course_id: str):
+            # expensive operation
+            return result
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Generate cache key
+            cache_key = key_func(*args, **kwargs)
+            
+            # Try cache first
+            cached_value = await cache.get(cache_key)
+            if cached_value is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached_value
+            
+            # Cache miss - execute function
+            logger.debug(f"Cache MISS: {cache_key}")
+            result = await func(*args, **kwargs)
+            
+            # Store in cache
+            if result is not None:
+                await cache.set(cache_key, result, ttl)
+            
+            return result
+        return wrapper
+    return decorator
 
 
 # Global cache instance

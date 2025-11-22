@@ -55,13 +55,16 @@ class CourseRegUser(HttpUser):
             try:
                 courses = r.json()
                 if isinstance(courses, list) and courses:
-                    course_id = choice(courses)["course_id"]
-                    self.client.post(
-                        "/api/enrollments",
-                        json={"course_id": course_id},
-                        headers=self.headers,
-                        name="POST /api/enrollments",
-                    )
+                    course = choice(courses)
+                    # Get first section from course (if sections exist)
+                    section_id = course.get("sections", [{}])[0].get("section_id") if course.get("sections") else None
+                    if section_id:
+                        self.client.post(
+                            "/api/enrollments",
+                            json={"section_id": section_id},
+                            headers=self.headers,
+                            name="POST /api/enrollments",
+                        )
             except Exception:
                 pass
 
