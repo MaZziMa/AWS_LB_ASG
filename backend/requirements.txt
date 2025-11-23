@@ -20,6 +20,7 @@ email-validator
 
 # AWS SDK
 boto3
+requests  # For EC2 metadata service
 
 # Monitoring
 prometheus-client
