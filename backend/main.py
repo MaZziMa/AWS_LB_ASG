@@ -9,6 +9,8 @@ from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 import logging
 import time
+import socket
+import requests
 # from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 # from fastapi.responses import Response
 
@@ -25,6 +27,52 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# Instance metadata helper
+def get_instance_metadata():
+    """Get EC2 instance metadata"""
+    metadata = {
+        "hostname": socket.gethostname(),
+        "private_ip": None,
+        "public_ip": None,
+        "instance_id": None,
+        "availability_zone": None
+    }
+    
+    try:
+        # Try to get private IP
+        metadata["private_ip"] = socket.gethostbyname(socket.gethostname())
+    except:
+        pass
+    
+    try:
+        # Try to get EC2 metadata (only works on EC2 instances)
+        ec2_metadata_url = "http://169.254.169.254/latest/meta-data"
+        
+        # Instance ID
+        response = requests.get(f"{ec2_metadata_url}/instance-id", timeout=1)
+        if response.status_code == 200:
+            metadata["instance_id"] = response.text
+        
+        # Public IPv4
+        response = requests.get(f"{ec2_metadata_url}/public-ipv4", timeout=1)
+        if response.status_code == 200:
+            metadata["public_ip"] = response.text
+        
+        # Availability Zone
+        response = requests.get(f"{ec2_metadata_url}/placement/availability-zone", timeout=1)
+        if response.status_code == 200:
+            metadata["availability_zone"] = response.text
+    except:
+        # Not running on EC2 or metadata service unavailable
+        pass
+    
+    return metadata
+
+
+# Get instance metadata at startup
+INSTANCE_METADATA = get_instance_metadata()
 
 # Prometheus metrics (disabled to avoid duplication)
 # REQUEST_COUNT = Counter(
@@ -102,11 +150,20 @@ async def log_requests(request: Request, call_next):
     # Calculate duration
     duration = time.time() - start_time
     
-    # Log request
+    # Add custom headers to identify the instance
+    if INSTANCE_METADATA.get("instance_id"):
+        response.headers["X-Instance-ID"] = INSTANCE_METADATA["instance_id"]
+    if INSTANCE_METADATA.get("public_ip"):
+        response.headers["X-Instance-IP"] = INSTANCE_METADATA["public_ip"]
+    if INSTANCE_METADATA.get("availability_zone"):
+        response.headers["X-Availability-Zone"] = INSTANCE_METADATA["availability_zone"]
+    
+    # Log request with instance info
     logger.info(
         f"{request.method} {request.url.path} - "
         f"Status: {response.status_code} - "
-        f"Duration: {duration:.3f}s"
+        f"Duration: {duration:.3f}s - "
+        f"Instance: {INSTANCE_METADATA.get('instance_id', 'local')}"
     )
     
     # Track metrics (disabled)
@@ -165,7 +222,14 @@ async def health_check():
     return {
         "status": "healthy",
         "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT
+        "environment": settings.ENVIRONMENT,
+        "instance": {
+            "id": INSTANCE_METADATA.get("instance_id"),
+            "public_ip": INSTANCE_METADATA.get("public_ip"),
+            "private_ip": INSTANCE_METADATA.get("private_ip"),
+            "availability_zone": INSTANCE_METADATA.get("availability_zone"),
+            "hostname": INSTANCE_METADATA.get("hostname")
+        }
     }
 
 
@@ -185,7 +249,12 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/api/docs",
         "health": "/health",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
+        "served_by": {
+            "instance_id": INSTANCE_METADATA.get("instance_id"),
+            "public_ip": INSTANCE_METADATA.get("public_ip"),
+            "availability_zone": INSTANCE_METADATA.get("availability_zone")
+        }
     }
 
 
